@@ -173,6 +173,8 @@ impl SlimeComputePipeline {
         let push_constants = slime_shader::PushConstants {
             step,
             num_agents: NUM_AGENTS as i32,
+            width: WIDTH as i32 / SCALE as i32,
+            height: HEIGHT as i32 / SCALE as i32,
         };
         builder
             .bind_pipeline_compute(self.compute_pipeline.clone())
