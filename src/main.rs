@@ -13,6 +13,8 @@ const WIDTH: f32 = 1024.0;
 const SCALE: f32 = 1.0;
 const NUM_AGENTS: u32 = 1;
 
+const TURN_SPEED: f32 = 0.1;
+
 fn main() {
     let mut event_loop = EventLoop::new();
 

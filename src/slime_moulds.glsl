@@ -19,6 +19,8 @@ layout(push_constant) uniform PushConstants {
     int num_agents;
     int width;
     int height;
+
+    float turn_speed;
 } push_constants;
 
 
@@ -43,9 +45,8 @@ float scaleToRange01(uint state)
 // fills image with black
 void init() {
     ivec2 size = imageSize(img);
-    ivec2 pos = ivec2(gl_GlobalInvocationID.x % size.x, gl_GlobalInvocationID.x / size.x);
+    ivec2 pos = ivec2(gl_GlobalInvocationID.x % push_constants.width, gl_GlobalInvocationID.x / push_constants.width);
 
-    // vec3 colour = vec3(scaleToRange01(hash(pos.y * size.x + pos.x * hash(gl_GlobalInvocationID.x))));
 
     imageStore(img, pos, vec4(0.0, 0.0, 0.0, 1.0));
 }
@@ -57,11 +58,19 @@ void update() {
         return;
     }
 
-
     // process data
     SlimeAgent agent = agents[id];
     vec2 dir = vec2(cos(agent.angle), sin(agent.angle));
     vec2 new_pos = agent.pos + dir;
+
+    ivec2 pos = ivec2(agent.pos);
+    uint random = hash(pos.y * push_constants.width + pos.x * hash(gl_GlobalInvocationID.x));
+
+
+    // random movement
+    agents[id].angle += (scaleToRange01(random) - 0.5) * 4 * M_PI * push_constants.turn_speed;
+
+    
 
     // bounce off image walls
     if (new_pos.x < 0 || new_pos.x >= push_constants.width || new_pos.y < 0 || new_pos.y >= push_constants.height) {

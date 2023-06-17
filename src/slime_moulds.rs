@@ -12,7 +12,7 @@ use vulkano_util::{
     renderer::DeviceImageView,
 };
 use crate::app::SlimeApp;
-use crate::{NUM_AGENTS, WIDTH, HEIGHT, SCALE};
+use crate::{NUM_AGENTS, WIDTH, HEIGHT, SCALE, TURN_SPEED};
 use std::f32::consts::FRAC_PI_4;
 
 const NUM_PIXELS: u32 = (WIDTH / SCALE) as u32 * (HEIGHT / SCALE) as u32;
@@ -175,6 +175,8 @@ impl SlimeComputePipeline {
             num_agents: NUM_AGENTS as i32,
             width: WIDTH as i32 / SCALE as i32,
             height: HEIGHT as i32 / SCALE as i32,
+
+            turn_speed: TURN_SPEED,
         };
         builder
             .bind_pipeline_compute(self.compute_pipeline.clone())
