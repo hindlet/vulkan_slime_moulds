@@ -9,7 +9,9 @@ struct SlimeAgent {
 };
 
 
-layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
+layout(set = 0, binding = 0, rgba8) uniform image2D img;
+
+
 layout(set = 0, binding = 1) buffer Agents {
     SlimeAgent[] agents;
 };
@@ -21,6 +23,8 @@ layout(push_constant) uniform PushConstants {
     int height;
 
     float turn_speed;
+    float move_speed;
+    float sense_distance;
 } push_constants;
 
 
@@ -41,10 +45,16 @@ float scaleToRange01(uint state)
     return state / 4294967295.0;
 }
 
+float sense(SlimeAgent agent, float sensor_angle_offset) {
+    float sensor_angle = angent.angle + sensor_angle_offset;
+    vec2 sensor_dir = vec2(cos(sensor_angle), sin(sensor_angle));
+
+
+}
+
 
 // fills image with black
 void init() {
-    ivec2 size = imageSize(img);
     ivec2 pos = ivec2(gl_GlobalInvocationID.x % push_constants.width, gl_GlobalInvocationID.x / push_constants.width);
 
 
@@ -61,7 +71,7 @@ void update() {
     // process data
     SlimeAgent agent = agents[id];
     vec2 dir = vec2(cos(agent.angle), sin(agent.angle));
-    vec2 new_pos = agent.pos + dir;
+    vec2 new_pos = agent.pos + dir * push_constants.move_speed;
 
     ivec2 pos = ivec2(agent.pos);
     uint random = hash(pos.y * push_constants.width + pos.x * hash(gl_GlobalInvocationID.x));
@@ -83,15 +93,26 @@ void update() {
 
     // update position and write to image
     agents[id].pos = new_pos;
-    imageStore(img, ivec2(agents[id].pos.xy), vec4(1.0, 1.0, 1.0, 1.0));
+    imageStore(img, ivec2(agents[id].pos.xy), vec4(0.7, 0.0, 1.0, 1.0));
+}
+
+void diffuse() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.x % push_constants.width, gl_GlobalInvocationID.x / push_constants.width);
+
+    vec3 colour = imageLoad(img, pos).xyz;
+    colour -= vec3(0.01);
+
+    imageStore(img, pos, vec4(colour, 1.0));
 }
 
 void main() {
 
     if (push_constants.step == 0) {
         init();
-    } else {
+    } else if (push_constants.step == 1){
         update();
+    } else {
+        diffuse();
     }
 
     

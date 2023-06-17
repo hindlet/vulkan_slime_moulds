@@ -1,3 +1,4 @@
+use core::num;
 use std::sync::Arc;
 use vulkano::{
     device::Queue,
@@ -6,14 +7,13 @@ use vulkano::{
     descriptor_set::{allocator::StandardDescriptorSetAllocator, WriteDescriptorSet, PersistentDescriptorSet},
     image::{ImageUsage, StorageImage},
     format::Format,
-    memory::allocator::{MemoryUsage, AllocationCreateInfo}, sync::GpuFuture, buffer::{Buffer, Subbuffer, BufferCreateInfo, BufferUsage},
+    memory::allocator::{MemoryUsage, AllocationCreateInfo}, sync::GpuFuture, buffer::{Buffer, Subbuffer, BufferCreateInfo, BufferUsage}, padded::Padded, DeviceSize,
 };
 use vulkano_util::{
     renderer::DeviceImageView,
 };
 use crate::app::SlimeApp;
-use crate::{NUM_AGENTS, WIDTH, HEIGHT, SCALE, TURN_SPEED};
-use std::f32::consts::FRAC_PI_4;
+use crate::{WIDTH, HEIGHT, SCALE, TURN_SPEED};
 
 const NUM_PIXELS: u32 = (WIDTH / SCALE) as u32 * (HEIGHT / SCALE) as u32;
 
@@ -25,7 +25,6 @@ mod slime_shader {
 }
 
 
-
 pub struct SlimeComputePipeline {
     compute_queue: Arc<Queue>,
     compute_pipeline: Arc<ComputePipeline>,
@@ -33,7 +32,9 @@ pub struct SlimeComputePipeline {
     descriptor_set_allocator: Arc<StandardDescriptorSetAllocator>,
     // life_in: Subbuffer<shader::ty>,
     image: DeviceImageView,
-    agent_buffer: Subbuffer<[slime_shader::SlimeAgent]>,
+    agent_buffer: Subbuffer<slime_shader::Agents>,
+    // agent_buffer: Subbuffer<[[f32; 2]]>,
+    num_agents: u32,
 }
 
 
@@ -41,7 +42,8 @@ impl SlimeComputePipeline {
     pub fn new(
         app: &SlimeApp,
         compute_queue: Arc<Queue>,
-        size: [u32; 2]
+        size: [u32; 2],
+        agent_data: Vec<([f32; 2], f32)>,
     ) -> Self {
         let memory_allocator = app.context.memory_allocator();
 
@@ -66,13 +68,14 @@ impl SlimeComputePipeline {
         )
         .unwrap();
 
-        let buffer_data = vec![([100.0, 150.0], FRAC_PI_4)];
-        let mut agent_data: Vec<slime_shader::SlimeAgent> = Vec::new();
-        for (pos, angle) in buffer_data {
-            agent_data.push(slime_shader::SlimeAgent{pos: pos.into(), angle: angle.into()})
+        // let agent_data = vec![([0.0, 0.0], 1.5), ([0.0, 0.0], 0.0)];
+        let mut agent_buffer_data: Vec<Padded<slime_shader::SlimeAgent, 4>> = Vec::new();
+        for (pos, angle) in agent_data {
+            agent_buffer_data.push(Padded(slime_shader::SlimeAgent{pos: pos.into(), angle: angle.into()}));
         }
+        let num_agents = agent_buffer_data.len() as u32;
 
-        let agent_buffer = Buffer::from_iter(
+        let agent_buffer: Subbuffer<slime_shader::Agents> = Buffer::new_unsized(
             app.context.memory_allocator(),
             BufferCreateInfo {
                 usage: BufferUsage::STORAGE_BUFFER,
@@ -82,8 +85,11 @@ impl SlimeComputePipeline {
                 usage: MemoryUsage::Upload,
                 ..Default::default()
             },
-            agent_data
+            num_agents as DeviceSize
         ).unwrap();
+
+        agent_buffer.write().unwrap().agents.copy_from_slice(agent_buffer_data.as_slice());
+
 
         SlimeComputePipeline {
             compute_queue: compute_queue,
@@ -92,6 +98,7 @@ impl SlimeComputePipeline {
             descriptor_set_allocator: app.descriptor_set_allocator.clone(),
             image,
             agent_buffer,
+            num_agents
         }
 
     }
@@ -111,7 +118,7 @@ impl SlimeComputePipeline {
         ).unwrap();
 
 
-        self.dispatch(&mut builder, 0, NUM_PIXELS);
+        self.dispatch(&mut builder, 0, ((NUM_PIXELS - 1) / 64 as u32) * 64 + 64);
 
         let command_buffer = builder.build().unwrap();
         let after_future = before_future
@@ -135,7 +142,8 @@ impl SlimeComputePipeline {
         ).unwrap();
 
 
-        self.dispatch(&mut builder, 1, ((NUM_AGENTS - 1) / 64 as u32) * 64 + 64);
+        self.dispatch(&mut builder, 1, ((self.num_agents - 1) / 64 as u32) * 64 + 64);
+        self.dispatch(&mut builder, 2, ((NUM_PIXELS - 1) / 64 as u32) * 64 + 64);
 
         let command_buffer = builder.build().unwrap();
         let after_future = before_future
@@ -172,7 +180,7 @@ impl SlimeComputePipeline {
 
         let push_constants = slime_shader::PushConstants {
             step,
-            num_agents: NUM_AGENTS as i32,
+            num_agents: self.num_agents as i32,
             width: WIDTH as i32 / SCALE as i32,
             height: HEIGHT as i32 / SCALE as i32,
 

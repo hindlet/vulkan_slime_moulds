@@ -28,7 +28,11 @@ pub struct SlimeApp {
 }
 
 impl SlimeApp {
-    pub fn open(&mut self, event_loop: &EventLoop<()>) {
+    pub fn open(
+        &mut self,
+        event_loop: &EventLoop<()>,
+        agent_data: Vec<([f32; 2], f32)>
+    ) {
         let window_id = self.windows.create_window(
             event_loop,
             &self.context,
@@ -44,7 +48,8 @@ impl SlimeApp {
         let mut pipeline = SlimeComputePipeline::new(
             self,
             self.context.graphics_queue().clone(),
-            [(WIDTH / SCALE) as u32, (HEIGHT / SCALE) as u32]
+            [(WIDTH / SCALE) as u32, (HEIGHT / SCALE) as u32],
+            agent_data
         );
         let render_pass = RenderPassOverFrame::new(
             self,
