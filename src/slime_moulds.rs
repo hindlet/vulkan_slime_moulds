@@ -1,4 +1,3 @@
-use core::num;
 use std::sync::Arc;
 use vulkano::{
     device::Queue,
@@ -12,9 +11,7 @@ use vulkano::{
 use vulkano_util::{
     renderer::DeviceImageView,
 };
-use crate::app::SlimeApp;
-use crate::{WIDTH, HEIGHT, SCALE, TURN_SPEED};
-
+use crate::{app::SlimeApp, SENSE_DISTANCE, SENSE_ANGLE, WIDTH, HEIGHT, SCALE, TURN_SPEED, MOVE_SPEED, SENSE_SIZE, DECAY_RATE, DIFFUSE_RATE};
 const NUM_PIXELS: u32 = (WIDTH / SCALE) as u32 * (HEIGHT / SCALE) as u32;
 
 mod slime_shader {
@@ -181,10 +178,17 @@ impl SlimeComputePipeline {
         let push_constants = slime_shader::PushConstants {
             step,
             num_agents: self.num_agents as i32,
-            width: WIDTH as i32 / SCALE as i32,
-            height: HEIGHT as i32 / SCALE as i32,
+            width: WIDTH as i32 / SCALE as i32 - 2,
+            height: HEIGHT as i32 / SCALE as i32 - 2,
 
             turn_speed: TURN_SPEED,
+            move_speed: MOVE_SPEED,
+            sense_distance: SENSE_DISTANCE,
+            sensor_angle: SENSE_ANGLE,
+            sensor_size: SENSE_SIZE,
+
+            decay_rate: DECAY_RATE,
+            diffuse_rate: DIFFUSE_RATE,
         };
         builder
             .bind_pipeline_compute(self.compute_pipeline.clone())
